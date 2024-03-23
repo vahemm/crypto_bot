@@ -1,0 +1,8 @@
+entity: User
+items:
+  user1:
+    firstName: 'test firstName'
+    lastName: 'test lastName'
+  user2:
+    firstName: 'test firstName'
+    lastName: 'test lastName'
