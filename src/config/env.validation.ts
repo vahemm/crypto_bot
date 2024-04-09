@@ -1,4 +1,4 @@
-import { plainToInstance } from 'class-transformer';
+import { Transform, plainToInstance } from 'class-transformer';
 import { IsEnum, IsNumber, IsString, validateSync } from 'class-validator';
 
 enum Environment {
@@ -12,9 +12,15 @@ class EnvironmentVariables {
   NODE_ENVIRONMENT: Environment;
 
   @IsNumber()
+  @Transform(({ value }) => {
+    return Number(value);
+  })
   PORT: number;
 
   @IsNumber()
+  @Transform(({ value }) => {
+    return Number(value);
+  })
   DB_PORT: number;
 
   @IsString()

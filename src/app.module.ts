@@ -14,14 +14,14 @@ import { UsersModule } from './users/users.module';
       load: [AppConfig],
       validate,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        return configService.get<TypeOrmModuleAsyncOptions>('database');
-      },
-      inject: [ConfigService],
-    }),
-    UsersModule,
+    // TypeOrmModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   useFactory: (configService: ConfigService) => {
+    //     return configService.get<TypeOrmModuleAsyncOptions>('database');
+    //   },
+    //   inject: [ConfigService],
+    // }),
+    // UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
