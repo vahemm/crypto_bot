@@ -7,6 +7,7 @@ import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
 import { validate } from './config/env.validation';
 import { UsersModule } from './users/users.module';
 import { RestClientV5 } from 'bybit-api';
+import { ByBitTestModule } from './by-bit-test/by-bit-test.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RestClientV5 } from 'bybit-api';
       load: [AppConfig],
       validate,
     }),
+    ByBitTestModule,
     // TypeOrmModule.forRootAsync({
     //   imports: [ConfigModule],
     //   useFactory: (configService: ConfigService) => {
@@ -25,17 +27,7 @@ import { RestClientV5 } from 'bybit-api';
     // UsersModule,
   ],
   controllers: [AppController],
-  providers: [AppService, {
-    provide: 'ByBitClient',
-    useFactory: (configService: ConfigService) => {
-      return new RestClientV5({
-        key: configService.get('bybit_api_key'),
-        secret: configService.get('bybit_api_secret'),
-        testnet: false,
-      });
-    },
-    inject: [ConfigService],
-  }],
-  exports: ['ByBitClient']
+  providers: [AppService, ],
+  exports: []
 })
 export class AppModule {}
