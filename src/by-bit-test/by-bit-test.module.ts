@@ -6,7 +6,8 @@ import { RestClientV5 } from 'bybit-api';
 
 @Module({
   imports: [ConfigModule],
-  providers: [ByBitTestService,
+  providers: [
+    ByBitTestService,
     {
       provide: 'ByBitClient',
       useFactory: (configService: ConfigService) => {
