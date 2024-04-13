@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ByBitTestService } from './by-bit-test.service';
-import { ByBitTestController } from './by-bit-test.controller';
+import { ByBitService } from './by-bit.service';
+import { ByBitController } from './by-bit.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RestClientV5 } from 'bybit-api';
 
 @Module({
   imports: [ConfigModule],
   providers: [
-    ByBitTestService,
+    ByBitService,
     {
       provide: 'ByBitClient',
       useFactory: (configService: ConfigService) => {
@@ -18,8 +18,9 @@ import { RestClientV5 } from 'bybit-api';
         });
       },
       inject: [ConfigService],
-    }],
-  controllers: [ByBitTestController],
-  exports:['ByBitClient']
+    },
+  ],
+  controllers: [ByBitController],
+  exports: ['ByBitClient'],
 })
-export class ByBitTestModule {}
+export class ByBitModule {}

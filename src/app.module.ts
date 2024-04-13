@@ -7,7 +7,8 @@ import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
 import { validate } from './config/env.validation';
 import { UsersModule } from './users/users.module';
 import { RestClientV5 } from 'bybit-api';
-import { ByBitTestModule } from './by-bit-test/by-bit-test.module';
+import { ByBitModule } from './by-bit/by-bit.module';
+import { TestModuleModule } from './test-module/test-module.module';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { ByBitTestModule } from './by-bit-test/by-bit-test.module';
       load: [AppConfig],
       validate,
     }),
-    ByBitTestModule,
+    ByBitModule,
+    TestModuleModule,
     // TypeOrmModule.forRootAsync({
     //   imports: [ConfigModule],
     //   useFactory: (configService: ConfigService) => {
