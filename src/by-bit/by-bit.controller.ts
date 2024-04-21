@@ -7,6 +7,6 @@ export class ByBitController {
 
   @Get()
   async getAllUsers() {
-    return await this.ByBitService.testByBitClient();
+    return await this.ByBitService.findTimelyLevels();
   }
 }
