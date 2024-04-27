@@ -1,12 +1,22 @@
 import { Controller, Get } from '@nestjs/common';
 import { ByBitService } from './by-bit.service';
 
-@Controller('by-bit')
+@Controller('by_bit')
 export class ByBitController {
-  constructor(private ByBitService: ByBitService) {}
+  constructor(private byBitService: ByBitService) {}
 
-  @Get()
-  async getAllUsers() {
-    return await this.ByBitService.findTimelyLevels();
+  @Get('find_extremum_levels')
+  async findExtremumLevels() {
+    return await this.byBitService.findExtremumLevels();
+  }
+
+  @Get('get_usdt_perpetual_all_coins')
+  async getUSDTPerpetualAllCoins() {
+    return await this.byBitService.getUSDTPerpetualAllCoins();
+  }
+
+  @Get('find_extremum_actual_levels')
+  async findExtremumActualLevels() {
+    return await this.byBitService.findExtremumActualLevels();
   }
 }
