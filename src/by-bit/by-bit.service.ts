@@ -1,15 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RestClientV5 } from 'bybit-api';
+import { KlineIntervalV3, RestClientV5 } from 'bybit-api';
 import { ATR } from 'technicalindicators';
 import { ATRInput } from 'technicalindicators/declarations/directionalmovement/ATR';
-import {
-  FIND_EXTREMUM_ACTUAL_LEVELS,
-  FIND_EXTREMUM_LEVELS_INTERVAL,
-  FIND_EXTREMUM_LEVELS_LEVELS_COUNT,
-  FIND_EXTREMUM_LEVELS_MID_START,
-  FIND_EXTREMUM_LEVELS_PERIOD_BAR_COUNT,
-} from './constant';
+import { FIND_EXTREMUM_ACTUAL_LEVELS, FIND_EXTREMUM_LEVELS } from './constants';
 
 @Injectable()
 export class ByBitService {
@@ -36,16 +30,20 @@ export class ByBitService {
   }
 
   async findExtremumLevels(symbol = 'BTCUSDT') {
-    const periodBarCount = FIND_EXTREMUM_LEVELS_PERIOD_BAR_COUNT;
+    const {
+      PERIOD_BAR_COUNT,
+      LEVELS_INTERVAL,
+      LEVELS_COUNT,
+      MID_START,
+      ATR_COEFFICIENT_CLOSE_LEVEL,
+    } = FIND_EXTREMUM_LEVELS;
 
     const data = await this.byBitClient.getKline({
       category: 'linear',
       symbol: symbol,
-      interval: FIND_EXTREMUM_LEVELS_INTERVAL,
-      limit: periodBarCount + 20,
+      interval: LEVELS_INTERVAL as KlineIntervalV3,
+      limit: PERIOD_BAR_COUNT + 20,
     });
-
-    console.log({ data: data.result.list[0] });
 
     const currentPrice: number = +data.result.list[0][4];
 
@@ -53,8 +51,6 @@ export class ByBitService {
     const Highs: number[] = [];
     const Lows: number[] = [];
     const Closes: number[] = [];
-    const midStart = FIND_EXTREMUM_LEVELS_MID_START;
-    // const midStartBarCount = 2 * midStart + 1;
 
     for (let i = 0; i < data.result.list.length; i++) {
       Opens.push(+data.result.list[i][1]);
@@ -76,31 +72,27 @@ export class ByBitService {
     const extremumResistanceLevels: number[] = [];
     let allExtremums: number[] = [];
 
-    for (let i = midStart; i < periodBarCount; i++) {
-      const minPrice = Math.min(...Lows.slice(i - midStart, i + midStart));
-      const maxPrice = Math.max(...Highs.slice(i - midStart, i + midStart));
+    for (let i = MID_START; i < PERIOD_BAR_COUNT; i++) {
+      const minPrice = Math.min(...Lows.slice(i - MID_START, i + MID_START));
+      const maxPrice = Math.max(...Highs.slice(i - MID_START, i + MID_START));
       allExtremums = [...extremumSupportLevels, ...extremumResistanceLevels];
 
       if (Lows[i] == minPrice) {
-        const hasCloseMinExtremum = allExtremums.find((item) => {
-          return item - 0.25 * currentATRValue < minPrice &&
-            minPrice < item + 0.25 * currentATRValue
+        const hasCloseMinExtremum = allExtremums.find((level) => {
+          const difference = Math.abs(level - minPrice);
+
+          return ATR_COEFFICIENT_CLOSE_LEVEL * currentATRValue > difference
             ? true
             : false;
         });
 
         if (!hasCloseMinExtremum) {
           if (minPrice < currentPrice) {
-            if (
-              extremumSupportLevels.length < FIND_EXTREMUM_LEVELS_LEVELS_COUNT
-            ) {
+            if (extremumSupportLevels.length < LEVELS_COUNT) {
               extremumSupportLevels.push(minPrice);
             }
           } else {
-            if (
-              extremumResistanceLevels.length <
-              FIND_EXTREMUM_LEVELS_LEVELS_COUNT
-            ) {
+            if (extremumResistanceLevels.length < LEVELS_COUNT) {
               extremumResistanceLevels.push(minPrice);
             }
           }
@@ -108,25 +100,21 @@ export class ByBitService {
       }
 
       if (Highs[i] == maxPrice) {
-        const hasCloseMaxExtremum = allExtremums.find((item) => {
-          return item - 0.25 * currentATRValue < maxPrice &&
-            maxPrice < item + 0.25 * currentATRValue
+        const hasCloseMaxExtremum = allExtremums.find((level) => {
+          const difference = Math.abs(level - maxPrice);
+
+          return ATR_COEFFICIENT_CLOSE_LEVEL * currentATRValue > difference
             ? true
             : false;
         });
 
         if (!hasCloseMaxExtremum) {
           if (maxPrice < currentPrice) {
-            if (
-              extremumSupportLevels.length < FIND_EXTREMUM_LEVELS_LEVELS_COUNT
-            ) {
+            if (extremumSupportLevels.length < LEVELS_COUNT) {
               extremumSupportLevels.push(maxPrice);
             }
           } else {
-            if (
-              extremumResistanceLevels.length <
-              FIND_EXTREMUM_LEVELS_LEVELS_COUNT
-            ) {
+            if (extremumResistanceLevels.length < LEVELS_COUNT) {
               extremumResistanceLevels.push(maxPrice);
             }
           }
@@ -140,6 +128,7 @@ export class ByBitService {
       currentPrice,
       currentATRValue,
       symbol: data.result.symbol,
+      closestLevel: 1000000,
     };
   }
 
@@ -148,47 +137,47 @@ export class ByBitService {
     const startTime = Date.now();
 
     const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
-    const testData = await this.findExtremumLevels(usdtPerpetualAllCoins[0]);
-    console.log({ usdtPerpetualAllCoins });
-    console.log({ testData });
 
-    const allData: any[] = [];
+    const allActualLevels: any[] = [];
 
     await Promise.all(
       usdtPerpetualAllCoins.map((coin) => this.findExtremumLevels(coin)),
-    )
-      .then((data) => {
-        data.forEach((item) => {
-          const currentPrice = item.currentPrice;
-          const currentATRValue = item.currentATRValue;
+    ).then((data) => {
+      data.forEach((item) => {
+        const currentPrice = item.currentPrice;
+        const currentATRValue = item.currentATRValue;
 
-          const itemAllLevels = [
-            ...item.extremumSupportLevels,
-            ...item.extremumResistanceLevels,
-          ];
+        const itemAllLevels = [
+          ...item.extremumSupportLevels,
+          ...item.extremumResistanceLevels,
+        ];
 
-          const isLevelActual = itemAllLevels.find((level) => {
-            return level - ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue <
-              currentPrice &&
-              currentPrice <
-                level + ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue
-              ? true
-              : false;
-          });
+        let closestLevel = 1000000;
+        let closestDifference = 1000000;
 
-          if (isLevelActual) {
-            allData.push(item);
+        itemAllLevels.forEach((level) => {
+          const difference = Math.abs(level - currentPrice);
+
+          if (closestDifference > difference) {
+            closestDifference = difference;
+            closestLevel = level;
           }
         });
-      })
-      .catch((err) => {
-        console.log({ err });
+
+        if (
+          ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue >
+          closestDifference
+        ) {
+          item.closestLevel = closestLevel;
+          allActualLevels.push(item);
+        }
       });
+    });
 
     const endTime = Date.now();
 
     console.log({ duration: endTime - startTime });
 
-    return allData;
+    return allActualLevels;
   }
 }
