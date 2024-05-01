@@ -7,7 +7,7 @@ export class ByBitController {
 
   @Get('find_extremum_levels')
   async findExtremumLevels() {
-    return await this.byBitService.findExtremumLevels();
+    return await this.byBitService.findExtremumLevelsMiddleware();
   }
 
   @Get('get_usdt_perpetual_all_coins')

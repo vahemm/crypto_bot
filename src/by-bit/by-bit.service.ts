@@ -29,14 +29,64 @@ export class ByBitService {
       .filter((item) => item.includes('USDT'));
   }
 
-  async findExtremumLevels(symbol = 'BTCUSDT') {
+  async findExtremumLevelsMiddleware(coin = 'BTCUSDT') {
+    const {
+      LEVELS_INTERVAL_MACRO,
+      LEVELS_INTERVAL_MICRO,
+      MID_START_MACRO,
+      MID_START_MICRO,
+    } = FIND_EXTREMUM_LEVELS;
+
+    const microParams = {
+      MID_START: MID_START_MICRO,
+      LEVELS_INTERVAL: LEVELS_INTERVAL_MICRO,
+    };
+
+    const macroParams = {
+      MID_START: MID_START_MACRO,
+      LEVELS_INTERVAL: LEVELS_INTERVAL_MACRO,
+    };
+
+    let transformedLevels: {
+      LEVELS_INTERVAL: any;
+      extremumResistanceLevels: number[];
+      extremumSupportLevels: number[];
+      currentPrice: number;
+      currentATRValue: number;
+      symbol: string;
+      closestLevel: number;
+      macroLevels: {
+        LEVELS_INTERVAL: any;
+        extremumResistanceLevels: number[];
+        extremumSupportLevels: number[];
+        currentPrice: number;
+        currentATRValue: number;
+        symbol: string;
+        closestLevel: number;
+      };
+    };
+
+    await Promise.all([
+      this.findExtremumLevels(coin, microParams),
+      this.findExtremumLevels(coin, macroParams),
+    ]).then((data) => {
+      transformedLevels = { ...data[0], macroLevels: data[1] };
+    });
+
+    return transformedLevels;
+  }
+
+  async findExtremumLevels(symbol = 'BTCUSDT', params?) {
     const {
       PERIOD_BAR_COUNT,
-      LEVELS_INTERVAL,
       LEVELS_COUNT,
-      MID_START,
       ATR_COEFFICIENT_CLOSE_LEVEL,
+      LAST_BARS_COUNT,
+      LEVELS_INTERVAL,
+      MID_START,
     } = FIND_EXTREMUM_LEVELS;
+
+    // const { LEVELS_INTERVAL, MID_START } = params;
 
     const data = await this.byBitClient.getKline({
       category: 'linear',
@@ -46,6 +96,15 @@ export class ByBitService {
     });
 
     const currentPrice: number = +data.result.list[0][4];
+
+    // const lastBars = data.result.list.slice(0, LAST_BARS_COUNT).map((bar) => {
+    //   return {
+    //     openPrice: +bar[1],
+    //     highPrice: +bar[2],
+    //     lowPrice: +bar[3],
+    //     closePrice: +bar[4],
+    //   };
+    // });
 
     const Opens: number[] = [];
     const Highs: number[] = [];
@@ -89,11 +148,26 @@ export class ByBitService {
         if (!hasCloseMinExtremum) {
           if (minPrice < currentPrice) {
             if (extremumSupportLevels.length < LEVELS_COUNT) {
-              extremumSupportLevels.push(minPrice);
+              const higherSuppoerLevels = extremumSupportLevels.filter(
+                (level) => {
+                  return minPrice > level;
+                },
+              );
+
+              if (higherSuppoerLevels.length === 0) {
+                extremumSupportLevels.push(minPrice);
+              }
             }
           } else {
             if (extremumResistanceLevels.length < LEVELS_COUNT) {
-              extremumResistanceLevels.push(minPrice);
+              const lowerResistanceLevels = extremumResistanceLevels.filter(
+                (level) => {
+                  return minPrice < level;
+                },
+              );
+              if (lowerResistanceLevels.length === 0) {
+                extremumResistanceLevels.push(minPrice);
+              }
             }
           }
         }
@@ -111,29 +185,51 @@ export class ByBitService {
         if (!hasCloseMaxExtremum) {
           if (maxPrice < currentPrice) {
             if (extremumSupportLevels.length < LEVELS_COUNT) {
-              extremumSupportLevels.push(maxPrice);
+              const higherSuppoerLevels = extremumSupportLevels.filter(
+                (level) => {
+                  return maxPrice > level;
+                },
+              );
+
+              if (higherSuppoerLevels.length === 0) {
+                extremumSupportLevels.push(maxPrice);
+              }
             }
           } else {
             if (extremumResistanceLevels.length < LEVELS_COUNT) {
-              extremumResistanceLevels.push(maxPrice);
+              const lowerResistanceLevels = extremumResistanceLevels.filter(
+                (level) => {
+                  return maxPrice < level;
+                },
+              );
+              if (lowerResistanceLevels.length === 0) {
+                extremumResistanceLevels.push(maxPrice);
+              }
             }
           }
         }
       }
     }
 
+    extremumResistanceLevels.reverse();
+
     return {
-      extremumSupportLevels,
+      LEVELS_INTERVAL,
       extremumResistanceLevels,
+      extremumSupportLevels,
       currentPrice,
       currentATRValue,
       symbol: data.result.symbol,
       closestLevel: 1000000,
+      // lastBars,
     };
   }
 
   async findExtremumActualLevels() {
-    const { ATR_COEFFICIENT_ACTUAL_LEVEL } = FIND_EXTREMUM_ACTUAL_LEVELS;
+    const { ATR_COEFFICIENT_ACTUAL_LEVEL, ATR_COEFFICIENT_ACTUAL_LEVEL_RANGE } =
+      FIND_EXTREMUM_ACTUAL_LEVELS;
+    // const { LEVELS_INTERVAL, MID_START } = FIND_EXTREMUM_LEVELS;
+
     const startTime = Date.now();
 
     const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
@@ -146,6 +242,7 @@ export class ByBitService {
       data.forEach((item) => {
         const currentPrice = item.currentPrice;
         const currentATRValue = item.currentATRValue;
+        // const macroLevels = item.macroLevels;
 
         const itemAllLevels = [
           ...item.extremumSupportLevels,
@@ -165,9 +262,19 @@ export class ByBitService {
         });
 
         if (
-          ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue >
-          closestDifference
+          ATR_COEFFICIENT_ACTUAL_LEVEL_RANGE * currentATRValue >
+            closestDifference &&
+          ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue < closestDifference
         ) {
+          // const macroLevels = [
+          //   ...item.macroLevels.extremumSupportLevels,
+          //   ...item.macroLevels.extremumResistanceLevels,
+          // ];
+
+          // const hasMacroLevels = macroLevels.find((macroLevel) => {
+          //   return Math.abs(macroLevel - currentPrice) < 3 * currentATRValue;
+          // });
+
           item.closestLevel = closestLevel;
           allActualLevels.push(item);
         }
