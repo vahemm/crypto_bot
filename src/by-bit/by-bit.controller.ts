@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ByBitService } from './by-bit.service';
+import { IntervalDto } from './dtos/interval.dto';
 
 @Controller('by_bit')
 export class ByBitController {
@@ -18,5 +19,20 @@ export class ByBitController {
   @Get('find_extremum_actual_levels')
   async findExtremumActualLevels() {
     return await this.byBitService.findExtremumActualLevels();
+  }
+
+  @Get('find_extremum_actual_levels_for_breakout')
+  async findExtremumActualLevelsForBreakout(@Query() query: IntervalDto) {
+    return await this.byBitService.findExtremumActualLevelsForBreakout(query);
+  }
+
+  @Get('find_trending_coins')
+  async findTrendingCoins() {
+    return await this.byBitService.findTrendingCoins();
+  }
+
+  @Get('test')
+  async test() {
+    return await this.byBitService.findExtremumLevelsForBreakout();
   }
 }
