@@ -36,22 +36,22 @@ export class ByBitService {
   }
 
   async findExtremumLevelsMiddleware(coin = 'BTCUSDT') {
-    const {
-      LEVELS_INTERVAL_MACRO,
-      LEVELS_INTERVAL_MICRO,
-      MID_START_MACRO,
-      MID_START_MICRO,
-    } = FIND_EXTREMUM_LEVELS;
+    // const {
+    //   LEVELS_INTERVAL_MACRO,
+    //   LEVELS_INTERVAL_MICRO,
+    //   MID_START_MACRO,
+    //   MID_START_MICRO,
+    // } = FIND_EXTREMUM_LEVELS;
 
-    const microParams = {
-      MID_START: MID_START_MICRO,
-      LEVELS_INTERVAL: LEVELS_INTERVAL_MICRO,
-    };
+    // const microParams = {
+    //   MID_START: MID_START_MICRO,
+    //   LEVELS_INTERVAL: LEVELS_INTERVAL_MICRO,
+    // };
 
-    const macroParams = {
-      MID_START: MID_START_MACRO,
-      LEVELS_INTERVAL: LEVELS_INTERVAL_MACRO,
-    };
+    // const macroParams = {
+    //   MID_START: MID_START_MACRO,
+    //   LEVELS_INTERVAL: LEVELS_INTERVAL_MACRO,
+    // };
 
     let transformedLevels: {
       LEVELS_INTERVAL: any;
@@ -73,8 +73,8 @@ export class ByBitService {
     };
 
     await Promise.all([
-      this.findExtremumLevels(coin, microParams),
-      this.findExtremumLevels(coin, macroParams),
+      this.findExtremumLevels(coin),
+      this.findExtremumLevels(coin),
     ]).then((data) => {
       transformedLevels = { ...data[0], macroLevels: data[1] };
     });
@@ -83,13 +83,8 @@ export class ByBitService {
   }
 
   async findExtremumLevelsForBreakout(symbol = 'BTCUSDT', query?: IntervalDto) {
-    const {
-      PERIOD_BAR_COUNT,
-      LEVELS_COUNT,
-      LAST_BARS_COUNT,
-      LEVELS_INTERVAL,
-      MID_START,
-    } = FIND_EXTREMUM_LEVELS_FOR_BREAKOUT;
+    const { PERIOD_BAR_COUNT, LEVELS_COUNT, LEVELS_INTERVAL, MID_START } =
+      FIND_EXTREMUM_LEVELS_FOR_BREAKOUT;
 
     const interval = query.interval
       ? query.interval
@@ -184,12 +179,11 @@ export class ByBitService {
     };
   }
 
-  async findExtremumLevels(symbol = 'BTCUSDT', params?) {
+  async findExtremumLevels(symbol = 'BTCUSDT') {
     const {
       PERIOD_BAR_COUNT,
       LEVELS_COUNT,
       ATR_COEFFICIENT_CLOSE_LEVEL,
-      LAST_BARS_COUNT,
       LEVELS_INTERVAL,
       MID_START,
     } = FIND_EXTREMUM_LEVELS;
@@ -398,7 +392,6 @@ export class ByBitService {
 
   async findExtremumActualLevelsForBreakout(query) {
     const {
-      ATR_COEFFICIENT_ACTUAL_LEVEL,
       ATR_COEFFICIENT_ACTUAL_LEVEL_RANGE,
       ATR_COEFFICIENT_ACTUAL_LEVEL_DIFFERENCE,
     } = FIND_EXTREMUM_ACTUAL_LEVELS_FOR_BREAKOUT;
@@ -499,6 +492,6 @@ export class ByBitService {
   }
 
   async findTrendingCoins() {
-    const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
+    return await this.getUSDTPerpetualAllCoins();
   }
 }
