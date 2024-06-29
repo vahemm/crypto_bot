@@ -10,14 +10,24 @@ import {
   FIND_EXTREMUM_LEVELS_FOR_BREAKOUT,
 } from './constants';
 import { IntervalDto } from './dtos/interval.dto';
+import TelegramBot from 'node-telegram-bot-api';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class ByBitService {
   constructor(
     @Inject('ByBitClient')
     private byBitClient: RestClientV5,
+    @Inject('TelegramBot')
+    private telegramBot: TelegramBot,
     private configService: ConfigService,
-  ) {}
+  ) {
+    this.telegramBot.on('message', (msg) => {
+      const chatId = msg.chat.id;
+      const messageText = msg.text;
+      console.log({ chatId, messageText });
+    });
+  }
 
   async testByBitClient() {
     return await this.byBitClient.getOrderbook({
@@ -36,23 +46,6 @@ export class ByBitService {
   }
 
   async findExtremumLevelsMiddleware(coin = 'BTCUSDT') {
-    // const {
-    //   LEVELS_INTERVAL_MACRO,
-    //   LEVELS_INTERVAL_MICRO,
-    //   MID_START_MACRO,
-    //   MID_START_MICRO,
-    // } = FIND_EXTREMUM_LEVELS;
-
-    // const microParams = {
-    //   MID_START: MID_START_MICRO,
-    //   LEVELS_INTERVAL: LEVELS_INTERVAL_MICRO,
-    // };
-
-    // const macroParams = {
-    //   MID_START: MID_START_MACRO,
-    //   LEVELS_INTERVAL: LEVELS_INTERVAL_MACRO,
-    // };
-
     let transformedLevels: {
       LEVELS_INTERVAL: any;
       extremumResistanceLevels: number[];
@@ -327,6 +320,21 @@ export class ByBitService {
     };
   }
 
+  async fundingOne(symbolValue = 'MTLUSDT') {
+    const data = await this.byBitClient.getTickers({
+      category: 'linear',
+      symbol: symbolValue,
+    });
+
+    const { fundingRate, symbol, nextFundingTime } = data.result.list[0];
+
+    return {
+      fundingRate,
+      symbol,
+      nextFundingTimeUTC4: new Date(+nextFundingTime),
+      nextFundingTime,
+    };
+  }
   async findExtremumActualLevels() {
     const { ATR_COEFFICIENT_ACTUAL_LEVEL, ATR_COEFFICIENT_ACTUAL_LEVEL_RANGE } =
       FIND_EXTREMUM_ACTUAL_LEVELS;
@@ -479,6 +487,42 @@ export class ByBitService {
           resistanceMinDifference < levelsAvailableDifference &&
           resistanceMinCurrentPriceRange < currentPriceLevelRange
         ) {
+          allActualLevels.push(item);
+        }
+      });
+    });
+
+    const endTime = Date.now();
+
+    console.log({ duration: endTime - startTime });
+
+    return allActualLevels;
+  }
+
+  @Cron('0 45 * * * *')
+  async fundingMany() {
+    const startTime = Date.now();
+    const leftTime = 16 * 60 * 1000;
+
+    const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
+
+    const allActualLevels: any[] = [];
+
+    await Promise.all(
+      usdtPerpetualAllCoins.map((coin) => this.fundingOne(coin)),
+    ).then((data) => {
+      data.forEach((item) => {
+        if (
+          Math.abs(+item.fundingRate) * 100 > 1 &&
+          +item.nextFundingTime - startTime < leftTime
+        ) {
+          const massage = `name - ${item.symbol} PERPETUAL
+funding rate - ${(+item.fundingRate * 100).toFixed(2)}%
+time - ${((+item.nextFundingTime - startTime) / 1000 / 60).toFixed(2)} minute`;
+
+          this.telegramBot.sendMessage(1778864251, massage);
+          this.telegramBot.sendMessage(1413551258, massage);
+
           allActualLevels.push(item);
         }
       });

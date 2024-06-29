@@ -31,8 +31,13 @@ export class ByBitController {
     return await this.byBitService.findTrendingCoins();
   }
 
+  @Get('funding_many')
+  async fundingMany() {
+    return await this.byBitService.fundingMany();
+  }
+
   @Get('test')
   async test() {
-    return await this.byBitService.findExtremumLevelsForBreakout();
+    return await this.byBitService.fundingMany();
   }
 }

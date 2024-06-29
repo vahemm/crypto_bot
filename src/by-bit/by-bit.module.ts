@@ -3,6 +3,7 @@ import { ByBitService } from './by-bit.service';
 import { ByBitController } from './by-bit.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RestClientV5 } from 'bybit-api';
+import * as TelegramBot from 'node-telegram-bot-api';
 
 @Module({
   imports: [ConfigModule],
@@ -18,6 +19,15 @@ import { RestClientV5 } from 'bybit-api';
         });
       },
       inject: [ConfigService],
+    },
+    {
+      provide: 'TelegramBot',
+      useFactory: () => {
+        return new TelegramBot(
+          '7024226048:AAF_DCm8uM6wCvBECupj8kh152XdJ8FvX1A',
+          { polling: true },
+        );
+      },
     },
   ],
   controllers: [ByBitController],

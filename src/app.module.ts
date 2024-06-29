@@ -6,6 +6,7 @@ import AppConfig from './config/app.config';
 import { validate } from './config/env.validation';
 
 import { ByBitModule } from './by-bit/by-bit.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ByBitModule } from './by-bit/by-bit.module';
       validate,
     }),
     ByBitModule,
+    ScheduleModule.forRoot(),
     // TypeOrmModule.forRootAsync({
     //   imports: [ConfigModule],
     //   useFactory: (configService: ConfigService) => {
