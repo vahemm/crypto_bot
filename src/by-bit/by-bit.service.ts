@@ -37,6 +37,8 @@ export class ByBitService {
   }
 
   async getUSDTPerpetualAllCoins() {
+    console.log('service');
+
     const data = await this.byBitClient.getInstrumentsInfo({
       category: 'linear',
     });
