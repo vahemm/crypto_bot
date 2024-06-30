@@ -37,18 +37,9 @@ export class ByBitService {
   }
 
   async getUSDTPerpetualAllCoins() {
-    console.log('service');
-
-    console.log({
-      key: this.configService.get('bybit_api_key'),
-      secret: this.configService.get('bybit_api_secret'),
-    });
-
     const data = await this.byBitClient.getInstrumentsInfo({
       category: 'linear',
     });
-
-    console.log({ data });
 
     return data.result.list
       .map((item) => item.symbol)

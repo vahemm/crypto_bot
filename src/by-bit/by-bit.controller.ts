@@ -13,8 +13,6 @@ export class ByBitController {
 
   @Get('get_usdt_perpetual_all_coins')
   async getUSDTPerpetualAllCoins() {
-    console.log('controller');
-
     return await this.byBitService.getUSDTPerpetualAllCoins();
   }
 
