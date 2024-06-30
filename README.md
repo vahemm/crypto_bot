@@ -1,1 +1,1 @@
-# bybit_bot
+crypto_bot
