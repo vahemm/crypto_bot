@@ -1,19 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ByBitService } from './by-bit.service';
+import { ExchangeService } from './exchange.service';
 import { IntervalDto } from './dtos/interval.dto';
 
-@Controller('by_bit')
-export class ByBitController {
-  constructor(private byBitService: ByBitService) {}
+@Controller('exchange')
+export class ExchangeController {
+  constructor(private byBitService: ExchangeService) {}
 
   @Get('find_extremum_levels')
   async findExtremumLevels() {
     return await this.byBitService.findExtremumLevelsMiddleware();
-  }
-
-  @Get('get_usdt_perpetual_all_coins')
-  async getUSDTPerpetualAllCoins() {
-    return await this.byBitService.getUSDTPerpetualAllCoins();
   }
 
   @Get('find_extremum_actual_levels')
@@ -33,11 +28,11 @@ export class ByBitController {
 
   @Get('funding_many')
   async fundingMany() {
-    return await this.byBitService.fundingMany();
+    return await this.byBitService.findFundingHighRatesFromAllExchanges();
   }
 
   @Get('test')
   async test() {
-    return await this.byBitService.fundingMany();
+    return await this.byBitService.testGateClient();
   }
 }

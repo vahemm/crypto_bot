@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TestModuleService } from './test-module.service';
 import { TestModuleController } from './test-module.controller';
-import { ByBitModule } from '../by-bit/by-bit.module';
+import { ExchangeModule } from '../exchange/exchange.module';
 
 @Module({
-  imports: [ByBitModule],
+  imports: [ExchangeModule],
   providers: [TestModuleService],
   controllers: [TestModuleController],
 })

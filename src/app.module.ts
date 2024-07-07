@@ -5,8 +5,11 @@ import { ConfigModule } from '@nestjs/config';
 import AppConfig from './config/app.config';
 import { validate } from './config/env.validation';
 
-import { ByBitModule } from './by-bit/by-bit.module';
+import { ExchangeModule } from './modules/exchange/exchange.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { TelegramBotModule } from './modules/telegram-bot/telegram-bot.module';
+import { BybitModule } from './modules/bybit/bybit.module';
+import { MexcModule } from './modules/mexc/mexc.module';
 
 @Module({
   imports: [
@@ -15,8 +18,11 @@ import { ScheduleModule } from '@nestjs/schedule';
       load: [AppConfig],
       validate,
     }),
-    ByBitModule,
+    ExchangeModule,
     ScheduleModule.forRoot(),
+    TelegramBotModule,
+    BybitModule,
+    MexcModule,
     // TypeOrmModule.forRootAsync({
     //   imports: [ConfigModule],
     //   useFactory: (configService: ConfigService) => {

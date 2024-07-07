@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KlineIntervalV3, RestClientV5 } from 'bybit-api';
 import { ATR } from 'technicalindicators';
@@ -11,38 +11,58 @@ import {
 } from './constants';
 import { IntervalDto } from './dtos/interval.dto';
 import TelegramBot from 'node-telegram-bot-api';
-import { Cron } from '@nestjs/schedule';
+
+import { GateApiTypes } from './types/gateApiTypes';
+import { BybitService } from 'src/modules/bybit/bybit.service';
+import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
+import { TCoinsWithHighFundingRate } from 'src/shared/types/coinsWithHighFundingRateBybit.type';
 
 @Injectable()
-export class ByBitService {
+export class ExchangeService {
   constructor(
-    @Inject('ByBitClient')
-    private byBitClient: RestClientV5,
+    @Inject('ByBitClientApi')
+    private byBitClientApi: RestClientV5,
+    @Inject('GateClient')
+    private gateClient: GateApiTypes,
     @Inject('TelegramBot')
     private telegramBot: TelegramBot,
+    @Inject(forwardRef(() => TelegramBotService))
+    private telegramBotService: TelegramBotService,
     private configService: ConfigService,
-  ) {
-    this.telegramBot.on('message', (msg) => {
-      const chatId = msg.chat.id;
-      const messageText = msg.text;
-      console.log({ chatId, messageText });
-    });
-  }
+    private bybitService: BybitService,
+  ) {}
 
   async testByBitClient() {
-    return await this.byBitClient.getOrderbook({
+    return await this.byBitClientApi.getOrderbook({
       category: 'linear',
       symbol: 'BTCUSD',
     });
   }
 
-  async getUSDTPerpetualAllCoins() {
-    const data = await this.byBitClient.getInstrumentsInfo({
-      category: 'linear',
-    });
-    return data.result.list
-      .map((item) => item.symbol)
-      .filter((item) => item.includes('USDT'));
+  async testGateClient(): Promise<any> {
+    const startTime = Date.now();
+    const leftTime = 860 * 60 * 1000;
+    const coinsWithHighFundingRate: any[] = [];
+
+    const gateData = (
+      await this.gateClient.futuresApi.listFuturesContracts('usdt')
+    ).body;
+    for (const item of gateData) {
+      if (
+        Math.abs(+item.fundingRate) * 100 > 0.5 &&
+        item.fundingNextApply - startTime < leftTime
+      ) {
+        this.telegramBotService.sendFundingMessage(
+          item.name,
+          (+item.fundingRate * 100).toFixed(2),
+          ((item.fundingNextApply * 1000 - startTime) / 1000 / 60).toFixed(2),
+          'Gate',
+        );
+
+        coinsWithHighFundingRate.push(item);
+      }
+    }
+    return coinsWithHighFundingRate;
   }
 
   async findExtremumLevelsMiddleware(coin = 'BTCUSDT') {
@@ -83,7 +103,7 @@ export class ByBitService {
       ? query.interval
       : (LEVELS_INTERVAL as KlineIntervalV3);
 
-    const data = await this.byBitClient.getKline({
+    const data = await this.byBitClientApi.getKline({
       category: 'linear',
       symbol: symbol,
       interval,
@@ -181,9 +201,7 @@ export class ByBitService {
       MID_START,
     } = FIND_EXTREMUM_LEVELS;
 
-    // const { LEVELS_INTERVAL, MID_START } = params;
-
-    const data = await this.byBitClient.getKline({
+    const data = await this.byBitClientApi.getKline({
       category: 'linear',
       symbol: symbol,
       interval: LEVELS_INTERVAL as KlineIntervalV3,
@@ -191,15 +209,6 @@ export class ByBitService {
     });
 
     const currentPrice: number = +data.result.list[0][4];
-
-    // const lastBars = data.result.list.slice(0, LAST_BARS_COUNT).map((bar) => {
-    //   return {
-    //     openPrice: +bar[1],
-    //     highPrice: +bar[2],
-    //     lowPrice: +bar[3],
-    //     closePrice: +bar[4],
-    //   };
-    // });
 
     const Opens: number[] = [];
     const Highs: number[] = [];
@@ -316,33 +325,17 @@ export class ByBitService {
       currentATRValue,
       symbol: data.result.symbol,
       closestLevel: 1000000,
-      // lastBars,
     };
   }
 
-  async fundingOne(symbolValue = 'MTLUSDT') {
-    const data = await this.byBitClient.getTickers({
-      category: 'linear',
-      symbol: symbolValue,
-    });
-
-    const { fundingRate, symbol, nextFundingTime } = data.result.list[0];
-
-    return {
-      fundingRate,
-      symbol,
-      nextFundingTimeUTC4: new Date(+nextFundingTime),
-      nextFundingTime,
-    };
-  }
   async findExtremumActualLevels() {
     const { ATR_COEFFICIENT_ACTUAL_LEVEL, ATR_COEFFICIENT_ACTUAL_LEVEL_RANGE } =
       FIND_EXTREMUM_ACTUAL_LEVELS;
-    // const { LEVELS_INTERVAL, MID_START } = FIND_EXTREMUM_LEVELS;
 
     const startTime = Date.now();
 
-    const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
+    const usdtPerpetualAllCoins =
+      await this.bybitService.getUSDTPerpetualAllCoinsBybit();
 
     const allActualLevels: any[] = [];
 
@@ -352,7 +345,6 @@ export class ByBitService {
       data.forEach((item) => {
         const currentPrice = item.currentPrice;
         const currentATRValue = item.currentATRValue;
-        // const macroLevels = item.macroLevels;
 
         const itemAllLevels = [
           ...item.extremumSupportLevels,
@@ -376,15 +368,6 @@ export class ByBitService {
             closestDifference &&
           ATR_COEFFICIENT_ACTUAL_LEVEL * currentATRValue < closestDifference
         ) {
-          // const macroLevels = [
-          //   ...item.macroLevels.extremumSupportLevels,
-          //   ...item.macroLevels.extremumResistanceLevels,
-          // ];
-
-          // const hasMacroLevels = macroLevels.find((macroLevel) => {
-          //   return Math.abs(macroLevel - currentPrice) < 3 * currentATRValue;
-          // });
-
           item.closestLevel = closestLevel;
           allActualLevels.push(item);
         }
@@ -407,7 +390,8 @@ export class ByBitService {
 
     const startTime = Date.now();
 
-    const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
+    const usdtPerpetualAllCoins =
+      await this.bybitService.getUSDTPerpetualAllCoinsBybit();
 
     const allActualLevels: any[] = [];
 
@@ -499,43 +483,55 @@ export class ByBitService {
     return allActualLevels;
   }
 
-  @Cron('0 45 * * * *')
-  async fundingMany() {
+  async findFundingHighRatesFromAllExchanges() {
+    const coinsWithHighFundingRateFromBybit =
+      await this.bybitService.findFundingHighRatesFromBybit();
+    const coinsWithHighFundingRateFromGate =
+      await this.findFundingHighRatesFromGate();
+
+    return [
+      ...coinsWithHighFundingRateFromBybit,
+      ...coinsWithHighFundingRateFromGate,
+    ];
+  }
+
+  async findFundingHighRatesFromGate() {
     const startTime = Date.now();
     const leftTime = 16 * 60 * 1000;
 
-    const usdtPerpetualAllCoins = await this.getUSDTPerpetualAllCoins();
+    const coinsWithHighFundingRateGate: TCoinsWithHighFundingRate[] = [];
 
-    const allActualLevels: any[] = [];
+    const gateData = (
+      await this.gateClient.futuresApi.listFuturesContracts('usdt')
+    ).body;
 
-    await Promise.all(
-      usdtPerpetualAllCoins.map((coin) => this.fundingOne(coin)),
-    ).then((data) => {
-      data.forEach((item) => {
-        if (
-          Math.abs(+item.fundingRate) * 100 > 1 &&
-          +item.nextFundingTime - startTime < leftTime
-        ) {
-          const massage = `name - ${item.symbol} PERPETUAL
-funding rate - ${(+item.fundingRate * 100).toFixed(2)}%
-time - ${((+item.nextFundingTime - startTime) / 1000 / 60).toFixed(2)} minute`;
-
-          this.telegramBot.sendMessage(1778864251, massage);
-          this.telegramBot.sendMessage(1413551258, massage);
-
-          allActualLevels.push(item);
-        }
-      });
-    });
+    for (const item of gateData) {
+      if (
+        Math.abs(+item.fundingRate) * 100 > 1 &&
+        item.fundingNextApply * 1000 - startTime < leftTime
+      ) {
+        coinsWithHighFundingRateGate.push({
+          symbol: item.name,
+          fundingRate: (+item.fundingRate * 100).toFixed(2),
+          nextFundingTime: (
+            (item.fundingNextApply * 1000 - startTime) /
+            1000 /
+            60
+          ).toFixed(2),
+          exchange: 'Gate',
+          lastPrice: item.lastPrice,
+        });
+      }
+    }
 
     const endTime = Date.now();
 
     console.log({ duration: endTime - startTime });
 
-    return allActualLevels;
+    return coinsWithHighFundingRateGate;
   }
 
   async findTrendingCoins() {
-    return await this.getUSDTPerpetualAllCoins();
+    return await this.bybitService.getUSDTPerpetualAllCoinsBybit();
   }
 }

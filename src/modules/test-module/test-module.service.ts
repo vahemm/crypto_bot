@@ -5,11 +5,11 @@ import { RestClientV5 } from 'bybit-api';
 export class TestModuleService {
   constructor(
     @Inject('ByBitClient')
-    private byBitClient: RestClientV5,
+    private byBitClientApi: RestClientV5,
   ) {}
 
   async testMethod() {
-    return await this.byBitClient.getOrderbook({
+    return await this.byBitClientApi.getOrderbook({
       category: 'linear',
       symbol: 'BTCUSD',
     });
